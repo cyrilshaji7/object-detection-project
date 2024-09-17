@@ -1,0 +1,5 @@
+flask 
+ultralytics 
+label-studio-sdk
+numpy 
+requests

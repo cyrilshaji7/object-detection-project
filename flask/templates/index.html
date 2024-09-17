@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YOLOv8 Object Detection</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        h1, h2 {
+            color: #333;
+            text-align: center;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .video-container, .log-container {
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .video-container {
+            flex: 1;
+            margin-right: 20px;
+        }
+        .log-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        #log {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        #log ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        #log li {
+            background-color: #f9f9f9;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #log li:nth-child(even) {
+            background-color: #f0f0f0;
+        }
+        #log .timestamp {
+            font-weight: bold;
+            color: #333;
+        }
+        #log .detection {
+            margin-left: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #startDetection { background-color: #4CAF50; }
+        #stopDetection { background-color: #f44336; }
+        #downloadCSV { background-color: #008CBA; }
+        #openLabelStudio { background-color: #ff9800; }
+        #error-message {
+            color: #f44336;
+            font-weight: bold;
+            display: none;
+        }
+        .interval-container {
+            margin-top: 10px;
+        }
+        .interval-input {
+            width: 50px;
+            padding: 5px;
+            margin-right: 5px;
+        }
+        #setInterval {
+            background-color: #2196F3;
+        }
+        .interval-option {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>YOLOv8 Object Detection</h1>
+    <div class="container">
+        <div class="video-container">
+            <img src="{{ url_for('video_feed') }}" width="100%" />
+            <button id="startDetection" onclick="startDetection()">Start Detection</button>
+            <button id="stopDetection" onclick="stopDetection()">Stop Detection</button>
+            <button id="openLabelStudio" onclick="openLabelStudio()">Open Label Studio</button>
+            <button id="Re-train" onclick="retrain()">Retraining</button>
+            <div class="interval-container">
+                <div class="interval-option">
+                    <label>
+                        <input type="radio" name="intervalType" value="timer" checked> Timer
+                    </label>
+                    <input type="number" id="intervalMinutes" class="interval-input" min="0" value="0"> min
+                    <input type="number" id="intervalSeconds" class="interval-input" min="0" max="59" value="5"> sec
+                </div>
+                <div class="interval-option">
+                    <label>
+                        <input type="radio" name="intervalType" value="fps"> Frames per second
+                    </label>
+                    <input type="number" id="intervalFPS" class="interval-input" min="0.1" step="0.1" value="1">
+                </div>
+                <button id="setInterval" onclick="setDetectionInterval()">Set Interval</button>
+            </div>
+        </div>
+        <div class="log-container">
+            <h2>Detection Log</h2>
+            <div id="error-message">Logs are temporarily unavailable due to ongoing training.</div>
+            <div id="log"></div>
+            <button id="downloadCSV" onclick="downloadCSV()">Download CSV</button>
+        </div>
+    </div>
+    <script>
+        function updateLog() {
+            $.get('/get_log')
+                .done(function(data) {
+                    $('#log').html(data);
+                    $('#error-message').hide();
+                })
+                .fail(function(xhr) {
+                    if (xhr.status === 403) {
+                        $('#log').empty();
+                        $('#error-message').show();
+                    }
+                });
+        }
+        setInterval(updateLog, 1000);
+        
+        function downloadCSV() {
+            window.location.href = '/download_csv';
+        }
+        
+        function startDetection() {
+            $.get('/start_detection', function(data) {
+                console.log(data);
+                alert(data.message);
+            });
+        }
+
+        function stopDetection() {
+            $.get('/stop_detection', function(data) {
+                console.log(data);
+                alert(data.message);
+            });
+        }
+
+        function retrain() {
+            $.get('/retrain', function(data) {
+                console.log(data);
+                alert(data.message);
+            });
+        }
+
+        function openLabelStudio() {
+            window.open('http://localhost:8080', '_blank');
+        }
+
+        function setDetectionInterval() {
+            let intervalInSeconds;
+            const intervalType = $('input[name="intervalType"]:checked').val();
+
+            if (intervalType === 'timer') {
+                const minutes = parseInt($('#intervalMinutes').val()) || 0;
+                const seconds = parseInt($('#intervalSeconds').val()) || 0;
+                intervalInSeconds = minutes * 60 + seconds;
+            } else { // FPS
+                const fps = parseFloat($('#intervalFPS').val());
+                if (fps > 0) {
+                    intervalInSeconds = 1 / fps;
+                } else {
+                    alert('Please enter a valid FPS value greater than 0.');
+                    return;
+                }
+            }
+
+            if (intervalInSeconds > 0) {
+                $.post('/set_interval', { interval: intervalInSeconds }, function(data) {
+                    console.log(data);
+                    alert(data.message);
+                });
+            } else {
+                alert('Please enter a valid interval greater than 0 seconds.');
+            }
+        }
+    </script>
+</body>
+</html>

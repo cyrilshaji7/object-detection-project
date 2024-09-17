@@ -1,0 +1,14 @@
+version: '3'
+services:
+  flask:
+    build:
+      context: ./flask
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./flask:/app
+
+  label-studio:
+    image: heartexlabs/label-studio:latest
+    ports:
+      - "8080:8080"
